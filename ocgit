@@ -1,0 +1,155 @@
+---
+title: "AutoSolver"
+output: 
+  html_notebook:
+    toc: TRUE
+---
+
+# Introduction
+This is a test based on [this post](https://blog.computationalcomplexity.org/2018/04/find-8-digits-number-such-that.html).
+
+The point lies in forming such 8-digit number that acts as the following, from left to right:
+
+* first digit contains the number of unique digits among the seven others;
+* second digit figures the number of _6_;
+* third digit figures the number of _5_;
+* fourth digit figures the number of _4_;
+* fifth digit figures the number of _3_;
+* seventh digit figures the number of _1_;
+* eighth digit figures the number of _0_.
+
+This type of problem can be solved with brute force, trying every kind of combination to meet the conditions.
+
+> Basically 10^8 digits to test. It could be interesting, although my computing power is definietly not enough.
+
+# Finding ways
+
+The trick would consist to apply those rules to a given random number, and then to see if this converges to a specific number.
+
+If such number exist, one would also want to find if more exist, and to count the number of hops/iterations to get there.
+
+
+## Imports
+
+I somehow got used to data.table and ggplot2 packages, so let us deal with it.
+
+```{r message=FALSE, warning=FALSE}
+# Import
+library(data.table)
+library(ggplot2)
+```
+
+## Proof of concept
+
+Remember applying the test to a random eight-number digit?
+
+```{r}
+# Starting number
+nb <- as.list(sample(0:9,8,replace=TRUE))
+# Fist loop
+fn <- list(0,
+           sum(nb==6),
+           sum(nb==5),
+           sum(nb==4),
+           sum(nb==3),
+           sum(nb==2),
+           sum(nb==1),
+           sum(nb==0))
+
+fn[1]<- length(unique(fn[-1])) # Counting different unique digits
+
+print(paste(nb,collapse=""))
+print(paste(fn,collapse=""))
+```
+
+It does produce something. Although, will this converge? Loop is the key.
+
+```{r}
+i<-0 # Hops   
+while (sum(abs(mapply(FUN = function(nb,fn) {sum(as.numeric(nb -fn))},nb=nb,fn=fn)))!=0) {
+    nb <- fn
+    fn <- list(0,
+               sum(nb==6),
+               sum(nb==5),
+               sum(nb==3),
+               sum(nb==1),
+               sum(nb==2),
+               sum(nb==4),
+               sum(nb==0))
+    
+    fn[1]<- length(unique(fn[-1]))
+    
+    i<-i+1
+}
+
+print(i)
+print(paste(fn,collapse=""))
+
+```
+
+A reasonnable number of hops, smaller than _20_, that lead to _40013112_. Feel free to check. 
+
+Questions are: would there be other numbers? How many hops are required to converge? Is convergence always possible?
+
+## The high road
+
+```{r}
+# To keep result
+res <- setNames(data.table(matrix(ncol=3,nrow=0)),c("Ini","Fin","Hop"))
+
+# Init
+st <- Sys.time()
+for (j in 1:10000) {
+  
+  de <- as.list(sample(0:9,8,replace=TRUE))
+  nb <- as.list(de)
+  fn <- list(length(unique(nb)),
+             sum(nb==6),
+             sum(nb==5),
+             sum(nb==4),
+             sum(nb==3),
+             sum(nb==2),
+             sum(nb==1),
+             sum(nb==0))
+  
+  i <-0
+  
+  while (sum(abs(mapply(FUN = function(nb,fn) {sum(as.numeric(nb -fn))},nb=nb,fn=fn)))!=0) {
+    nb <- fn
+    fn <- list(0,
+               sum(nb==6),
+               sum(nb==5),
+               sum(nb==3),
+               sum(nb==1),
+               sum(nb==2),
+               sum(nb==4),
+               sum(nb==0))
+    
+    fn[1]<- length(unique(fn[-1]))
+    
+    i<-i+1
+  }
+  
+  # Adding to res
+  te <- setNames(data.table(paste(de,collapse=""),paste(fn,collapse =""),i),c("Ini","Fin","Hop"))
+  res <- rbind.data.frame(res,te,make.row.names = FALSE)
+  
+}
+print(Sys.time()-st)
+```
+
+# And so?
+
+_res_ contains _10^5 observations_. That's great. Apparently, everything did converge.
+
+```{r}
+summary(res$Hop)
+```
+Everything converged rather quickly... What values?
+
+
+```{r}
+summary(factor(res$Fin))
+```
+
+So basically every attempt converged to the same value? Was the random generator broken?
